@@ -1,7 +1,7 @@
 {
-  "name": "piping-server",
-  "version": "1.1.0",
-  "description": "Streaming Data Transfer Server over HTTP/HTTPS",
+  "name": "piper",
+  "version": "1.0.0",
+  "description": "data pipe",
   "bin": {
     "piping-server": "dist/src/index.js"
   },
@@ -24,9 +24,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/nwtgck/piping-server"
+    "url": "https://github.com/tool3/piper.git"
   },
-  "author": "Ryo Ota <nwtgck@nwtgck.org> (https://github.com/nwtgck)",
+  "author": "Tal Hayut",
   "license": "MIT",
   "devDependencies": {
     "@types/mocha": "^7.0.2",
