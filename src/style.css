@@ -1,0 +1,46 @@
+body {
+  background: #1e1e1e;
+  font-family: monospace;
+  color: pink;
+  display: flex;
+  flex-direction: column;
+  padding: 0 15em;
+  font-size: 1.5em;
+}
+
+h1 {
+  display: inline;
+  font-size: 3em;
+  background: linear-gradient(
+    to right,
+    #b993d6,
+    #8ca6db
+  ); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+h3 {
+  font-size: 1.2em;
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+}
+
+.path_input {
+  display: flex;
+}
+
+input {
+  font-family: monospace;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+button {
+  background: thistle;
+  border-radius: 5px;
+  font-family: monospace;
+  font-weight: bold;
+}

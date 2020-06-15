@@ -2,20 +2,21 @@ import * as http from "http";
 import * as http2 from "http2";
 import * as log4js from "log4js";
 import * as multiparty from "multiparty";
-import {ParsedUrlQuery} from "querystring";
+import { ParsedUrlQuery } from "querystring";
 import * as stream from "stream";
 import * as url from "url";
-
-import {OptionalProperty, optMap, nanOrElse} from "./utils";
+import * as fs from "fs";
+import * as path from "path";
+import { OptionalProperty, optMap, nanOrElse } from "./utils";
 import * as resources from "./resources";
-import {VERSION} from "./version";
+import { VERSION } from "./version";
 
 type HttpReq = http.IncomingMessage | http2.Http2ServerRequest;
 type HttpRes = http.ServerResponse | http2.Http2ServerResponse;
 
 type ReqRes = {
-  readonly req: HttpReq,
-  readonly res: HttpRes
+  readonly req: HttpReq;
+  readonly res: HttpRes;
 };
 
 type Pipe = {
@@ -24,8 +25,8 @@ type Pipe = {
 };
 
 type ReqResAndUnsubscribe = {
-  readonly reqRes: ReqRes,
-  readonly unsubscribeCloseListener: () => void
+  readonly reqRes: ReqRes;
+  readonly unsubscribeCloseListener: () => void;
 };
 
 type UnestablishedPipe = {
@@ -49,7 +50,7 @@ function getPipeIfEstablished(p: UnestablishedPipe): Pipe | undefined {
         // NOTE: this operation has side-effect
         r.unsubscribeCloseListener();
         return r.reqRes;
-      })
+      }),
     };
   } else {
     return undefined;
@@ -59,18 +60,17 @@ function getPipeIfEstablished(p: UnestablishedPipe): Pipe | undefined {
 // Name to reserved path
 const NAME_TO_RESERVED_PATH = {
   index: "/",
+  style: "/style.css",
   version: "/version",
   help: "/help",
   faviconIco: "/favicon.ico",
-  robotsTxt: "/robots.txt"
+  robotsTxt: "/robots.txt",
 };
 
 // All reserved paths
-const RESERVED_PATHS: string[] =
-  Object.values(NAME_TO_RESERVED_PATH);
+const RESERVED_PATHS: string[] = Object.values(NAME_TO_RESERVED_PATH);
 
 export class Server {
-
   /** Get the number of receivers
    * @param {string | undefined} reqUrl
    * @returns {number}
@@ -80,34 +80,42 @@ export class Server {
     const query: ParsedUrlQuery | undefined =
       // tslint:disable-next-line:max-line-length
       // NOTE: Return type casting is safe because function parse(urlStr: string, parseQueryString: true, slashesDenoteHost?: boolean): UrlWithParsedQuery;
-      (optMap(url.parse, reqUrl, true) as OptionalProperty<url.UrlWithParsedQuery>)
-      .query;
+      (optMap(url.parse, reqUrl, true) as OptionalProperty<
+        url.UrlWithParsedQuery
+      >).query;
     // The number receivers
     // NOTE: parseInt(undefined, 10) is NaN
-    const nReceivers: number = nanOrElse(parseInt((query?.n as string ?? "1"), 10), 1);
+    const nReceivers: number = nanOrElse(
+      parseInt((query?.n as string) ?? "1", 10),
+      1
+    );
     return nReceivers;
   }
   private readonly pathToEstablished: Set<string> = new Set();
-  private readonly pathToUnestablishedPipe: Map<string, UnestablishedPipe> = new Map();
+  private readonly pathToUnestablishedPipe: Map<
+    string,
+    UnestablishedPipe
+  > = new Map();
 
   /**
    *
    * @param params
    */
-  constructor(readonly params: {
-    readonly logger?: log4js.Logger
-  } = {}) { }
+  constructor(
+    readonly params: {
+      readonly logger?: log4js.Logger;
+    } = {}
+  ) {}
 
   public generateHandler(useHttps: boolean): Handler {
     return (req: HttpReq, res: HttpRes) => {
       // Get path name
-      const reqPath: string =
-          url.resolve(
-            "/",
-            optMap(url.parse, req.url).pathname?.
-              // Remove last "/"
-              replace(/\/$/, "") ?? ""
-          );
+      const reqPath: string = url.resolve(
+        "/",
+        optMap(url.parse, req.url)
+          .pathname // Remove last "/"
+          ?.replace(/\/$/, "") ?? ""
+      );
       this.params.logger?.info(`${req.method} ${req.url}`);
 
       switch (req.method) {
@@ -115,9 +123,11 @@ export class Server {
         case "PUT":
           if (RESERVED_PATHS.includes(reqPath)) {
             res.writeHead(400, {
-              "Access-Control-Allow-Origin": "*"
+              "Access-Control-Allow-Origin": "*",
             });
-            res.end(`[ERROR] Cannot send to the reserved path '${reqPath}'. (e.g. '/mypath123')\n`);
+            res.end(
+              `[ERROR] Cannot send to the reserved path '${reqPath}'. (e.g. '/mypath123')\n`
+            );
           } else {
             // Handle a sender
             this.handleSender(req, res, reqPath);
@@ -125,19 +135,35 @@ export class Server {
           break;
         case "GET":
           switch (reqPath) {
-            case NAME_TO_RESERVED_PATH.index:
+            case NAME_TO_RESERVED_PATH.style:
+              const style = fs.readFileSync(
+                path.join(__dirname, "./style.css")
+              );
               res.writeHead(200, {
-                "Content-Length": Buffer.byteLength(resources.indexPage),
-                "Content-Type": "text/html"
+                "Content-Length": Buffer.byteLength(style),
+                "Content-Type": "text/css",
               });
-              res.end(resources.indexPage);
+
+              res.end(style);
+              break;
+            case NAME_TO_RESERVED_PATH.index:
+              const file = fs.readFileSync(
+                path.join(__dirname, "./index.html")
+              );
+
+              res.writeHead(200, {
+                "Content-Length": Buffer.byteLength(file),
+                "Content-Type": "text/html",
+              });
+
+              res.end(file);
               break;
             case NAME_TO_RESERVED_PATH.version:
               const versionPage: string = VERSION + "\n";
               res.writeHead(200, {
                 "Access-Control-Allow-Origin": "*",
                 "Content-Length": Buffer.byteLength(versionPage),
-                "Content-Type": "text/plain"
+                "Content-Type": "text/plain",
               });
               res.end(versionPage);
               break;
@@ -148,7 +174,8 @@ export class Server {
                 // NOTE: includes() is for supporting Glitch
                 return proto !== undefined && proto.includes("https");
               })();
-              const scheme: string = (useHttps || xForwardedProtoIsHttps) ? "https" : "http";
+              const scheme: string =
+                useHttps || xForwardedProtoIsHttps ? "https" : "http";
               // NOTE: req.headers.host contains port number
               const hostname: string = req.headers.host ?? "hostname";
               // tslint:disable-next-line:no-shadowed-variable
@@ -158,7 +185,7 @@ export class Server {
               res.writeHead(200, {
                 "Access-Control-Allow-Origin": "*",
                 "Content-Length": Buffer.byteLength(helpPage),
-                "Content-Type": "text/plain"
+                "Content-Type": "text/plain",
               });
               res.end(helpPage);
               break;
@@ -183,7 +210,7 @@ export class Server {
             "Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Content-Disposition",
             "Access-Control-Max-Age": 86400,
-            "Content-Length": 0
+            "Content-Length": 0,
           });
           res.end();
           break;
@@ -207,18 +234,23 @@ export class Server {
     // Delete unestablished pipe
     this.pathToUnestablishedPipe.delete(path);
 
-    const {sender, receivers} = pipe;
+    const { sender, receivers } = pipe;
 
     // Emit message to sender
-    sender.res.write(`[INFO] Start sending to ${pipe.receivers.length} receiver(s)!\n`);
+    sender.res.write(
+      `[INFO] Start sending to ${pipe.receivers.length} receiver(s)!\n`
+    );
 
-    this.params.logger?.info(`Sending: path='${path}', receivers=${pipe.receivers.length}`);
+    this.params.logger?.info(
+      `Sending: path='${path}', receivers=${pipe.receivers.length}`
+    );
 
-    const isMultipart: boolean = (sender.req.headers["content-type"] ?? "").includes("multipart/form-data");
+    const isMultipart: boolean = (
+      sender.req.headers["content-type"] ?? ""
+    ).includes("multipart/form-data");
 
-    const part: multiparty.Part | undefined =
-      isMultipart ?
-        await new Promise((resolve, reject) => {
+    const part: multiparty.Part | undefined = isMultipart
+      ? await new Promise((resolve, reject) => {
           const form = new multiparty.Form();
           form.once("part", (p: multiparty.Part) => {
             resolve(p);
@@ -228,11 +260,10 @@ export class Server {
           });
           // TODO: Not use any
           form.parse(sender.req as any);
-        }) :
-        undefined;
+        })
+      : undefined;
 
-    const senderData: stream.Readable =
-      part === undefined ? sender.req : part;
+    const senderData: stream.Readable = part === undefined ? sender.req : part;
 
     let abortedCount: number = 0;
     let endCount: number = 0;
@@ -256,19 +287,25 @@ export class Server {
         endCount++;
         // If end-count is # of receivers
         if (endCount === receivers.length) {
-          sender.res.end("[INFO] All receiver(s) was/were received successfully.\n");
+          sender.res.end(
+            "[INFO] All receiver(s) was/were received successfully.\n"
+          );
           // Delete from established
           this.removeEstablished(path);
         }
       };
 
       // Decide Content-Length
-      const contentLength: string | number | undefined = part === undefined ?
-        sender.req.headers["content-length"] : part.byteCount;
+      const contentLength: string | number | undefined =
+        part === undefined
+          ? sender.req.headers["content-length"]
+          : part.byteCount;
       // Get Content-Type from part or HTTP header.
       const contentType: string | undefined = (() => {
-        const type: string | undefined = (part === undefined ?
-          sender.req.headers["content-type"] : part.headers["content-type"]);
+        const type: string | undefined =
+          part === undefined
+            ? sender.req.headers["content-type"]
+            : part.headers["content-type"];
         if (type === undefined) {
           return undefined;
         }
@@ -286,17 +323,23 @@ export class Server {
           return mimeType === "text/html" ? "text/plain" + params : type;
         }
       })();
-      const contentDisposition: string | undefined = part === undefined ?
-        sender.req.headers["content-disposition"] : part.headers["content-disposition"];
+      const contentDisposition: string | undefined =
+        part === undefined
+          ? sender.req.headers["content-disposition"]
+          : part.headers["content-disposition"];
 
       // Write headers to a receiver
       receiver.res.writeHead(200, {
-        ...(contentLength === undefined ? {} : {"Content-Length": contentLength}),
-        ...(contentType === undefined ? {} : {"Content-Type": contentType}),
-        ...(contentDisposition === undefined ? {} : {"Content-Disposition": contentDisposition}),
+        ...(contentLength === undefined
+          ? {}
+          : { "Content-Length": contentLength }),
+        ...(contentType === undefined ? {} : { "Content-Type": contentType }),
+        ...(contentDisposition === undefined
+          ? {}
+          : { "Content-Disposition": contentDisposition }),
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Expose-Headers": "Content-Length, Content-Type",
-        "X-Content-Type-Options": "nosniff"
+        "X-Content-Type-Options": "nosniff",
       });
 
       const passThrough = new stream.PassThrough();
@@ -365,16 +408,18 @@ export class Server {
     // If the number of receivers is invalid
     if (nReceivers <= 0) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
       res.end(`[ERROR] n should > 0, but n = ${nReceivers}.\n`);
       return;
     }
     if (this.pathToEstablished.has(reqPath)) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
-      res.end(`[ERROR] Connection on '${reqPath}' has been established already.\n`);
+      res.end(
+        `[ERROR] Connection on '${reqPath}' has been established already.\n`
+      );
       return;
     }
     // Get unestablished pipe
@@ -383,7 +428,7 @@ export class Server {
     if (unestablishedPipe === undefined) {
       // Add headers
       res.writeHead(200, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
       // Send waiting message
       res.write(`[INFO] Waiting for ${nReceivers} receiver(s)...\n`);
@@ -393,14 +438,14 @@ export class Server {
       this.pathToUnestablishedPipe.set(reqPath, {
         sender: sender,
         receivers: [],
-        nReceivers: nReceivers
+        nReceivers: nReceivers,
       });
       return;
     }
     // If a sender has been connected already
     if (unestablishedPipe.sender !== undefined) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
       res.end(`[ERROR] Another sender has been connected on '${reqPath}'.\n`);
       return;
@@ -408,24 +453,32 @@ export class Server {
     // If the number of receivers is not the same size as connecting pipe's one
     if (nReceivers !== unestablishedPipe.nReceivers) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
-      res.end(`[ERROR] The number of receivers should be ${unestablishedPipe.nReceivers} but ${nReceivers}.\n`);
+      res.end(
+        `[ERROR] The number of receivers should be ${unestablishedPipe.nReceivers} but ${nReceivers}.\n`
+      );
       return;
     }
     // Register the sender
-    unestablishedPipe.sender = this.createSenderOrReceiver("sender", req, res, reqPath);
+    unestablishedPipe.sender = this.createSenderOrReceiver(
+      "sender",
+      req,
+      res,
+      reqPath
+    );
     // Add headers
     res.writeHead(200, {
-      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Origin": "*",
     });
     // Send waiting message
     res.write(`[INFO] Waiting for ${nReceivers} receiver(s)...\n`);
     // Send the number of receivers information
-    res.write(`[INFO] ${unestablishedPipe.receivers.length} receiver(s) has/have been connected.\n`);
+    res.write(
+      `[INFO] ${unestablishedPipe.receivers.length} receiver(s) has/have been connected.\n`
+    );
     // Get pipeOpt if established
-    const pipe: Pipe | undefined =
-      getPipeIfEstablished(unestablishedPipe);
+    const pipe: Pipe | undefined = getPipeIfEstablished(unestablishedPipe);
 
     if (pipe !== undefined) {
       // Start data transfer
@@ -445,7 +498,7 @@ export class Server {
     if (req.headers["service-worker"] === "script") {
       // Reject Service Worker registration
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
       res.end(`[ERROR] Service Worker registration is rejected.\n`);
       return;
@@ -455,7 +508,7 @@ export class Server {
     // If the number of receivers is invalid
     if (nReceivers <= 0) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
       res.end(`[ERROR] n should > 0, but n = ${nReceivers}.\n`);
       return;
@@ -463,9 +516,11 @@ export class Server {
     // The connection has been established already
     if (this.pathToEstablished.has(reqPath)) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
-      res.end(`[ERROR] Connection on '${reqPath}' has been established already.\n`);
+      res.end(
+        `[ERROR] Connection on '${reqPath}' has been established already.\n`
+      );
       return;
     }
     // Get unestablishedPipe
@@ -474,26 +529,33 @@ export class Server {
     if (unestablishedPipe === undefined) {
       // Create a receiver
       /* tslint:disable:no-shadowed-variable */
-      const receiver = this.createSenderOrReceiver("receiver", req, res, reqPath);
+      const receiver = this.createSenderOrReceiver(
+        "receiver",
+        req,
+        res,
+        reqPath
+      );
       // Set a receiver
       this.pathToUnestablishedPipe.set(reqPath, {
         receivers: [receiver],
-        nReceivers: nReceivers
+        nReceivers: nReceivers,
       });
       return;
     }
     // If the number of receivers is not the same size as connecting pipe's one
     if (nReceivers !== unestablishedPipe.nReceivers) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
-      res.end(`[ERROR] The number of receivers should be ${unestablishedPipe.nReceivers} but ${nReceivers}.\n`);
+      res.end(
+        `[ERROR] The number of receivers should be ${unestablishedPipe.nReceivers} but ${nReceivers}.\n`
+      );
       return;
     }
     // If more receivers can not connect
     if (unestablishedPipe.receivers.length === unestablishedPipe.nReceivers) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
       });
       res.end("[ERROR] The number of receivers has reached limits.\n");
       return;
@@ -506,12 +568,13 @@ export class Server {
 
     if (unestablishedPipe.sender !== undefined) {
       // Send connection message to the sender
-      unestablishedPipe.sender.reqRes.res.write("[INFO] A receiver was connected.\n");
+      unestablishedPipe.sender.reqRes.res.write(
+        "[INFO] A receiver was connected.\n"
+      );
     }
 
     // Get pipeOpt if established
-    const pipe: Pipe | undefined =
-      getPipeIfEstablished(unestablishedPipe);
+    const pipe: Pipe | undefined = getPipeIfEstablished(unestablishedPipe);
 
     if (pipe !== undefined) {
       // Start data transfer
@@ -545,35 +608,40 @@ export class Server {
       if (unestablishedPipe !== undefined) {
         // Get sender/receiver remover
         const remover =
-          removerType === "sender" ?
-            (): boolean => {
-              // If sender is defined
-              if (unestablishedPipe.sender !== undefined) {
-                // Remove sender
-                unestablishedPipe.sender = undefined;
-                return true;
+          removerType === "sender"
+            ? (): boolean => {
+                // If sender is defined
+                if (unestablishedPipe.sender !== undefined) {
+                  // Remove sender
+                  unestablishedPipe.sender = undefined;
+                  return true;
+                }
+                return false;
               }
-              return false;
-            } :
-            (): boolean => {
-              // Get receivers
-              const receivers = unestablishedPipe.receivers;
-              // Find receiver's index
-              const idx = receivers.findIndex((r) => r.reqRes === receiverReqRes);
-              // If receiver is found
-              if (idx !== -1) {
-                // Delete the receiver from the receivers
-                receivers.splice(idx, 1);
-                return true;
-              }
-              return false;
-            };
+            : (): boolean => {
+                // Get receivers
+                const receivers = unestablishedPipe.receivers;
+                // Find receiver's index
+                const idx = receivers.findIndex(
+                  (r) => r.reqRes === receiverReqRes
+                );
+                // If receiver is found
+                if (idx !== -1) {
+                  // Delete the receiver from the receivers
+                  receivers.splice(idx, 1);
+                  return true;
+                }
+                return false;
+              };
         // Remove a sender or receiver
         const removed: boolean = remover();
         // If removed
         if (removed) {
           // If unestablished pipe has no sender and no receivers
-          if (unestablishedPipe.receivers.length === 0 && unestablishedPipe.sender === undefined) {
+          if (
+            unestablishedPipe.receivers.length === 0 &&
+            unestablishedPipe.sender === undefined
+          ) {
             // Remove unestablished pipe
             this.pathToUnestablishedPipe.delete(reqPath);
             this.params.logger?.info(`unestablished '${reqPath}' removed`);
@@ -589,7 +657,7 @@ export class Server {
     };
     return {
       reqRes: receiverReqRes,
-      unsubscribeCloseListener: unsubscribeCloseListener
+      unsubscribeCloseListener: unsubscribeCloseListener,
     };
   }
 }
