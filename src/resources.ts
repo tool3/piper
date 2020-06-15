@@ -1,12 +1,16 @@
-import {VERSION} from "./version";
+import { VERSION } from "./version";
 
-export const indexPage: string =
-`<!DOCTYPE html>
+export const indexPage: string = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <title>Piping Server</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
+    body {
+      background: #1e1e1e;
+      font-family: monospace;
+      color: wheat;
+    }
     h1 {
       display: inline;
     }
@@ -36,12 +40,7 @@ export const indexPage: string =
 <button onclick="send()">Send</button><br>
 <progress id="progress_bar" value="0" max="100" style="display: none"></progress><br>
 <div id="message"></div>
-<hr>
-Piping UI for Web: <a href="https://piping-ui.org">https://piping-ui.org</a><br>
-Command-line usage:
-<a href="https://github.com/nwtgck/piping-server#readme">
-  https://github.com/nwtgck/piping-server#readme
-</a><br>
+<br/>
 <script>
   // Toggle input mode: file or text
   var toggleInputMode = (function () {
@@ -124,8 +123,7 @@ Command-line usage:
  */
 // tslint:disable-next-line:no-shadowed-variable
 export function generateHelpPage(url: string): string {
-  return (
-`Help for Piping Server ${VERSION}
+  return `Help for Piping Server ${VERSION}
 (Repository: https://github.com/nwtgck/piping-server)
 
 ======= Get  =======
@@ -149,5 +147,5 @@ tar zfcp - ./mydir | curl -T - ${url}/mypath
 cat myfile | openssl aes-256-cbc | curl -T - ${url}/mypath
 ## Get
 curl ${url}/mypath | openssl aes-256-cbc -d
-`);
+`;
 }
