@@ -50,7 +50,7 @@ function getPipeIfEstablished(p: UnestablishedPipe): Pipe | undefined {
         // NOTE: this operation has side-effect
         r.unsubscribeCloseListener();
         return r.reqRes;
-      }),
+      })
     };
   } else {
     return undefined;
@@ -64,7 +64,7 @@ const NAME_TO_RESERVED_PATH = {
   version: "/version",
   help: "/help",
   faviconIco: "/favicon.ico",
-  robotsTxt: "/robots.txt",
+  robotsTxt: "/robots.txt"
 };
 
 // All reserved paths
@@ -105,7 +105,7 @@ export class Server {
     readonly params: {
       readonly logger?: log4js.Logger;
     } = {}
-  ) {}
+  ) { }
 
   public generateHandler(useHttps: boolean): Handler {
     return (req: HttpReq, res: HttpRes) => {
@@ -123,7 +123,7 @@ export class Server {
         case "PUT":
           if (RESERVED_PATHS.includes(reqPath)) {
             res.writeHead(400, {
-              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Origin": "*"
             });
             res.end(
               `[ERROR] Cannot send to the reserved path '${reqPath}'. (e.g. '/mypath123')\n`
@@ -141,7 +141,7 @@ export class Server {
               );
               res.writeHead(200, {
                 "Content-Length": Buffer.byteLength(style),
-                "Content-Type": "text/css",
+                "Content-Type": "text/css"
               });
 
               res.end(style);
@@ -153,7 +153,7 @@ export class Server {
 
               res.writeHead(200, {
                 "Content-Length": Buffer.byteLength(file),
-                "Content-Type": "text/html",
+                "Content-Type": "text/html"
               });
 
               res.end(file);
@@ -163,7 +163,7 @@ export class Server {
               res.writeHead(200, {
                 "Access-Control-Allow-Origin": "*",
                 "Content-Length": Buffer.byteLength(versionPage),
-                "Content-Type": "text/plain",
+                "Content-Type": "text/plain"
               });
               res.end(versionPage);
               break;
@@ -185,7 +185,7 @@ export class Server {
               res.writeHead(200, {
                 "Access-Control-Allow-Origin": "*",
                 "Content-Length": Buffer.byteLength(helpPage),
-                "Content-Type": "text/plain",
+                "Content-Type": "text/plain"
               });
               res.end(helpPage);
               break;
@@ -210,7 +210,7 @@ export class Server {
             "Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Content-Disposition",
             "Access-Control-Max-Age": 86400,
-            "Content-Length": 0,
+            "Content-Length": 0
           });
           res.end();
           break;
@@ -251,16 +251,16 @@ export class Server {
 
     const part: multiparty.Part | undefined = isMultipart
       ? await new Promise((resolve, reject) => {
-          const form = new multiparty.Form();
-          form.once("part", (p: multiparty.Part) => {
-            resolve(p);
-          });
-          form.on("error", () => {
-            this.params.logger?.info(`sender-multipart on-error: '${path}'`);
-          });
-          // TODO: Not use any
-          form.parse(sender.req as any);
-        })
+        const form = new multiparty.Form();
+        form.once("part", (p: multiparty.Part) => {
+          resolve(p);
+        });
+        form.on("error", () => {
+          this.params.logger?.info(`sender-multipart on-error: '${path}'`);
+        });
+        // TODO: Not use any
+        form.parse(sender.req as any);
+      })
       : undefined;
 
     const senderData: stream.Readable = part === undefined ? sender.req : part;
@@ -339,7 +339,7 @@ export class Server {
           : { "Content-Disposition": contentDisposition }),
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Expose-Headers": "Content-Length, Content-Type",
-        "X-Content-Type-Options": "nosniff",
+        "X-Content-Type-Options": "nosniff"
       });
 
       const passThrough = new stream.PassThrough();
@@ -391,9 +391,9 @@ export class Server {
   }
 
   // Delete from established
-  private removeEstablished(path: string): void {
-    this.pathToEstablished.delete(path);
-    this.params.logger?.info(`established '${path}' removed`);
+  private removeEstablished(removedPath: string): void {
+    this.pathToEstablished.delete(removedPath);
+    this.params.logger?.info(`established '${removedPath}' removed`);
   }
 
   /**
@@ -408,14 +408,14 @@ export class Server {
     // If the number of receivers is invalid
     if (nReceivers <= 0) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(`[ERROR] n should > 0, but n = ${nReceivers}.\n`);
       return;
     }
     if (this.pathToEstablished.has(reqPath)) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(
         `[ERROR] Connection on '${reqPath}' has been established already.\n`
@@ -428,7 +428,7 @@ export class Server {
     if (unestablishedPipe === undefined) {
       // Add headers
       res.writeHead(200, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       // Send waiting message
       res.write(`[INFO] Waiting for ${nReceivers} receiver(s)...\n`);
@@ -438,14 +438,14 @@ export class Server {
       this.pathToUnestablishedPipe.set(reqPath, {
         sender: sender,
         receivers: [],
-        nReceivers: nReceivers,
+        nReceivers: nReceivers
       });
       return;
     }
     // If a sender has been connected already
     if (unestablishedPipe.sender !== undefined) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(`[ERROR] Another sender has been connected on '${reqPath}'.\n`);
       return;
@@ -453,7 +453,7 @@ export class Server {
     // If the number of receivers is not the same size as connecting pipe's one
     if (nReceivers !== unestablishedPipe.nReceivers) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(
         `[ERROR] The number of receivers should be ${unestablishedPipe.nReceivers} but ${nReceivers}.\n`
@@ -469,7 +469,7 @@ export class Server {
     );
     // Add headers
     res.writeHead(200, {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": "*"
     });
     // Send waiting message
     res.write(`[INFO] Waiting for ${nReceivers} receiver(s)...\n`);
@@ -498,7 +498,7 @@ export class Server {
     if (req.headers["service-worker"] === "script") {
       // Reject Service Worker registration
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(`[ERROR] Service Worker registration is rejected.\n`);
       return;
@@ -508,7 +508,7 @@ export class Server {
     // If the number of receivers is invalid
     if (nReceivers <= 0) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(`[ERROR] n should > 0, but n = ${nReceivers}.\n`);
       return;
@@ -516,7 +516,7 @@ export class Server {
     // The connection has been established already
     if (this.pathToEstablished.has(reqPath)) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(
         `[ERROR] Connection on '${reqPath}' has been established already.\n`
@@ -538,14 +538,14 @@ export class Server {
       // Set a receiver
       this.pathToUnestablishedPipe.set(reqPath, {
         receivers: [receiver],
-        nReceivers: nReceivers,
+        nReceivers: nReceivers
       });
       return;
     }
     // If the number of receivers is not the same size as connecting pipe's one
     if (nReceivers !== unestablishedPipe.nReceivers) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end(
         `[ERROR] The number of receivers should be ${unestablishedPipe.nReceivers} but ${nReceivers}.\n`
@@ -555,7 +555,7 @@ export class Server {
     // If more receivers can not connect
     if (unestablishedPipe.receivers.length === unestablishedPipe.nReceivers) {
       res.writeHead(400, {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       });
       res.end("[ERROR] The number of receivers has reached limits.\n");
       return;
@@ -610,29 +610,29 @@ export class Server {
         const remover =
           removerType === "sender"
             ? (): boolean => {
-                // If sender is defined
-                if (unestablishedPipe.sender !== undefined) {
-                  // Remove sender
-                  unestablishedPipe.sender = undefined;
-                  return true;
-                }
-                return false;
+              // If sender is defined
+              if (unestablishedPipe.sender !== undefined) {
+                // Remove sender
+                unestablishedPipe.sender = undefined;
+                return true;
               }
+              return false;
+            }
             : (): boolean => {
-                // Get receivers
-                const receivers = unestablishedPipe.receivers;
-                // Find receiver's index
-                const idx = receivers.findIndex(
-                  (r) => r.reqRes === receiverReqRes
-                );
-                // If receiver is found
-                if (idx !== -1) {
-                  // Delete the receiver from the receivers
-                  receivers.splice(idx, 1);
-                  return true;
-                }
-                return false;
-              };
+              // Get receivers
+              const receivers = unestablishedPipe.receivers;
+              // Find receiver's index
+              const idx = receivers.findIndex(
+                (r) => r.reqRes === receiverReqRes
+              );
+              // If receiver is found
+              if (idx !== -1) {
+                // Delete the receiver from the receivers
+                receivers.splice(idx, 1);
+                return true;
+              }
+              return false;
+            };
         // Remove a sender or receiver
         const removed: boolean = remover();
         // If removed
@@ -657,7 +657,7 @@ export class Server {
     };
     return {
       reqRes: receiverReqRes,
-      unsubscribeCloseListener: unsubscribeCloseListener,
+      unsubscribeCloseListener: unsubscribeCloseListener
     };
   }
 }
