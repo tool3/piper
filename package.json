@@ -30,7 +30,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/mocha": "^8.0.2",
-    "@types/node": "^14.11.5",
+    "@types/node": "^14.11.8",
     "@types/power-assert": "^1.5.3",
     "@types/request": "^2.48.5",
     "@types/yargs": "^15.0.7",
